@@ -22,7 +22,4 @@ def lambda_handler(event, context):
             },
         },
     )
-    response_error_check = response.json()
-    if response_error_check.get('errorType', False):
-        return {'responses': response, 'unprocessed_keys': []}
-    return {'responses': response['Responses'][TABLE_NAME], 'unprocessed_keys': response['UnprocessedKeys']}
+    return response
