@@ -22,4 +22,4 @@ def lambda_handler(event, context):
             },
         },
     )
-    return response['Responses'][TABLE_NAME]
+    return {'responses': response['Responses'][TABLE_NAME], 'unprocessed_keys': response['UnprocessedKeys']}
