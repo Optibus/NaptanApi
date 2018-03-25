@@ -2,6 +2,7 @@ import boto3
 from botocore.exceptions import ClientError
 
 TABLE_NAME = 'Naptan'
+MAX_BARCH_SIZE = 100
 
 
 def lambda_handler(event, context):
@@ -11,7 +12,7 @@ def lambda_handler(event, context):
     stop_ids = event["stop_ids"]
     stops_ids_list = stop_ids.split(',')
 
-    if len(stops_ids_list) > 100:
+    if len(stops_ids_list) > MAX_BARCH_SIZE:
         print('Cannot support batch get item for more then 100 items')
         raise ClientError
     batch_items_to_list = [dict(StopId=stops_id) for stops_id in stops_ids_list]

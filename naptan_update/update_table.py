@@ -1,4 +1,5 @@
 from io import BytesIO
+
 import codecs
 import csv
 import boto3
@@ -6,23 +7,17 @@ from zipfile import ZipFile
 from urllib import urlopen
 
 # dynamodb columns name
-from boto3.dynamodb.conditions import Attr
 from botocore.exceptions import ClientError
 
-COLUMNS = ['ATCOCode', 'NaptanCode', 'PlateCode', 'CleardownCode',
-           'CommonName', 'CommonNameLang', 'ShortCommonName', 'ShortCommonNameLang',
-           'Landmark', 'LandmarkLang', 'Street', 'StreetLang', 'Crossing',
-           'CrossingLang', 'Indicator', 'IndicatorLang', 'Bearing', 'NptgLocalityCode',
-           'LocalityName', 'ParentLocalityName', 'GrandParentLocalityName', 'Town',
-           'TownLang', 'Suburb', 'SuburbLang', 'LocalityCentre', 'GridType', 'Easting',
-           'Northing', 'Longitude', 'Latitude', 'StopType', 'BusStopType',
-           'TimingStatus', 'DefaultWaitTime', 'Notes', 'NotesLang',
-           'AdministrativeAreaCode', 'CreationDateTime', 'ModificationDateTime',
-           'RevisionNumber', 'Modification', 'Status']
+from naptan_create.create_table import create_stop
+
+NAPTAN_STOPS_URL = "http://naptan.app.dft.gov.uk/DataRequest/Naptan.ashx?format=csv"
+REGION = 'eu-west-1'
+TABLE_NAME = 'Naptan'
 
 
 def lambda_handler():
-    url = urlopen("http://naptan.app.dft.gov.uk/DataRequest/Naptan.ashx?format=csv")
+    url = urlopen(NAPTAN_STOPS_URL)
 
     # download and unzip file, save Stops.csv in tmp file
     try:
@@ -38,10 +33,10 @@ def lambda_handler():
         raise
 
     # Connect to DynamoDB using boto
-    dynamo_db = boto3.resource('dynamodb', region_name='eu-west-1')
+    dynamo_db = boto3.resource('dynamodb', region_name=REGION)
 
     # Connect to the DynamoDB table
-    table = dynamo_db.Table('Naptan')
+    table = dynamo_db.Table(TABLE_NAME)
 
     # get latest modification date
     try:
@@ -56,20 +51,19 @@ def lambda_handler():
     else:
         modification_date = response['Item']['ModificationDate']
 
-    new_items = [stop['StopId'] for stop in table.scan(FilterExpression=Attr('ModificationDateTime').gte(modification_date))]
-
     try:
         with codecs.open("/tmp/stops_temp_file.csv", 'r', encoding='ascii', errors='ignore') as stops_csv:
             reader = csv.DictReader(stops_csv)
             for idx, row in enumerate(reader):
-                # by default, convert empty strings to null
+                # if stop modification date
                 if row['ModificationDateTime'] >= modification_date:
-                    key = {row['StopId']}
-                    expression_atribute_values = {column: row[column] if row[column] != '' else 'null' for column in COLUMNS}
-                    table.update_item(Key=key, ExpressionAttributeValues=expression_atribute_values)
+                    # todo verify that delete_item is safe to in case item does not exists
+                    # try to delete the item, assuming that if item does not exists, action will just do nothing
+                    table.delete_item(Key={'StopId': row['ATCOCode']})
+                    stop = create_stop(row)
+                    # put updated stop in DB
+                    table.put_item(Item=stop)
     except Exception:
         print("cannot read from temp file")
         raise
 
-
-lambda_handler()
