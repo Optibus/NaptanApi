@@ -3,12 +3,13 @@ from botocore.exceptions import ClientError
 
 TABLE_NAME = 'Naptan'
 MAX_BARCH_SIZE = 100
+REGION = 'eu-west-1'
 
 
 def lambda_handler(event, context):
 
     # Connect to DynamoDB using boto
-    dynamo_db = boto3.resource('dynamodb', region_name='eu-west-1')
+    dynamo_db = boto3.resource('dynamodb', region_name=REGION)
     stop_ids = event["stop_ids"]
     stops_ids_list = stop_ids.split(',')
 
