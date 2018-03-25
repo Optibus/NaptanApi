@@ -13,17 +13,14 @@ def create_naptan_table():
     url = urlopen(NAPTAN_STOPS_URL)
 
     # download and unzip file, save Stops.csv in tmp file
-    try:
-        with ZipFile(BytesIO(url.read())) as zip_file:
-            for contained_file in zip_file.namelist():
-                with open("/tmp/stops_temp_file.csv", "wb") as output:
-                    if contained_file == 'Stops.csv':
-                        for line in zip_file.open(contained_file).readlines():
-                            output.write(line)
-                        break
-    except Exception:
-        print("cannot download Naptan data from url")
-        raise
+
+    with ZipFile(BytesIO(url.read())) as zip_file:
+        for contained_file in zip_file.namelist():
+            with open("/tmp/stops_temp_file.csv", "wb") as output:
+                if contained_file == 'Stops.csv':
+                    for line in zip_file.open(contained_file).readlines():
+                        output.write(line)
+                    break
 
     # Connect to DynamoDB using boto
     dynamo_db = boto3.resource('dynamodb', region_name=REGION)
@@ -33,20 +30,16 @@ def create_naptan_table():
 
     # read temp file and add each item to dynamodb
     with table.batch_writer() as batch:
-        try:
-            # open using codecs for the errors='ignore' flag.
-            with codecs.open("/tmp/stops_temp_file.csv", 'r', encoding='ascii', errors='ignore') as stops_csv:
-                reader = csv.DictReader(stops_csv)
-                for idx, row in enumerate(reader):
-                    # by default, convert empty strings to null
-                    stop = create_stop(row)
-                    batch.put_item(Item=stop)
-        except Exception:
-            print("cannot read from temp file")
-            raise
+        # open using codecs for the errors='ignore' flag.
+        with codecs.open("/tmp/stops_temp_file.csv", 'r', encoding='ascii', errors='ignore') as stops_csv:
+            reader = csv.DictReader(stops_csv)
+            for idx, row in enumerate(reader):
+                stop = create_stop(row)
+                batch.put_item(Item=stop)
 
 
 def create_stop(row):
+    # by default, convert empty strings to null
     stop = {column: value if value != '' else 'null' for column, value in row.iteritems()}
     stop_id = row['ATCOCode']
     stop.update({'StopId': stop_id})
