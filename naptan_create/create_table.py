@@ -5,29 +5,20 @@ import boto3
 from zipfile import ZipFile
 from urllib import urlopen
 
-# dynamodb columns name
-COLUMNS = ['ATCOCode', 'NaptanCode', 'PlateCode', 'CleardownCode',
-           'CommonName', 'CommonNameLang', 'ShortCommonName', 'ShortCommonNameLang',
-           'Landmark', 'LandmarkLang', 'Street', 'StreetLang', 'Crossing',
-           'CrossingLang', 'Indicator', 'IndicatorLang', 'Bearing', 'NptgLocalityCode',
-           'LocalityName', 'ParentLocalityName', 'GrandParentLocalityName', 'Town',
-           'TownLang', 'Suburb', 'SuburbLang', 'LocalityCentre', 'GridType', 'Easting',
-           'Northing', 'Longitude', 'Latitude', 'StopType', 'BusStopType',
-           'TimingStatus', 'DefaultWaitTime', 'Notes', 'NotesLang',
-           'AdministrativeAreaCode', 'CreationDateTime', 'ModificationDateTime',
-           'RevisionNumber', 'Modification', 'Status']
+NAPTAN_STOPS_URL = "http://naptan.app.dft.gov.uk/DataRequest/Naptan.ashx?format=csv"
+REGION = 'eu-west-1'
 
 
-def lambda_handler():
-    url = urlopen("http://naptan.app.dft.gov.uk/DataRequest/Naptan.ashx?format=csv")
+def create_naptan_table():
+    url = urlopen(NAPTAN_STOPS_URL)
 
     # download and unzip file, save Stops.csv in tmp file
     try:
-        with ZipFile(BytesIO(url.read())) as my_zip_file:
-            for contained_file in my_zip_file.namelist():
+        with ZipFile(BytesIO(url.read())) as zip_file:
+            for contained_file in zip_file.namelist():
                 with open("/tmp/stops_temp_file.csv", "wb") as output:
                     if contained_file == 'Stops.csv':
-                        for line in my_zip_file.open(contained_file).readlines():
+                        for line in zip_file.open(contained_file).readlines():
                             output.write(line)
                         break
     except Exception:
@@ -35,7 +26,7 @@ def lambda_handler():
         raise
 
     # Connect to DynamoDB using boto
-    dynamo_db = boto3.resource('dynamodb', region_name='eu-west-1')
+    dynamo_db = boto3.resource('dynamodb', region_name=REGION)
 
     # Connect to the DynamoDB table
     table = dynamo_db.Table('Naptan')
@@ -43,6 +34,7 @@ def lambda_handler():
     # read temp file and add each item to dynamodb
     with table.batch_writer() as batch:
         try:
+            # open using codecs for the errors='ignore' flag.
             with codecs.open("/tmp/stops_temp_file.csv", 'r', encoding='ascii', errors='ignore') as stops_csv:
                 reader = csv.DictReader(stops_csv)
                 for idx, row in enumerate(reader):
@@ -55,7 +47,7 @@ def lambda_handler():
 
 
 def create_stop(row):
-    stop = {column: row[column] if row[column] != '' else 'null' for column in COLUMNS}
+    stop = {column: value if value != '' else 'null' for column, value in row.iteritems()}
     stop_id = row['ATCOCode']
     stop.update({'StopId': stop_id})
     return stop
