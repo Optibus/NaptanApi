@@ -14,7 +14,7 @@ REGION = 'eu-west-1'
 def create_naptan_table():
     url = urlopen(NAPTAN_STOPS_URL)
 
-    # Download and unzip file, save Stops.csv in tmp file
+    # Downloads and unzips file, saves stops.csv into tmp file
 
     with ZipFile(BytesIO(url.read())) as zip_file:
         for contained_file in zip_file.namelist():
@@ -24,16 +24,16 @@ def create_naptan_table():
                         output.write(line)
                     break
 
-    # Connect to DynamoDB using boto
+    # Connects to DynamoDB using boto library
     dynamo_db = boto3.resource('dynamodb', region_name=REGION)
 
-    # Connect to the DynamoDB table
+    # Connects to the DynamoDB table
     table = dynamo_db.Table('Naptan')
-    modification_date = datetime.now()
-    # Read temp file and add each item to dynamodb
+    current_date = datetime.now()
+    # Reads temp file and adds each item to dynamodb
     with table.batch_writer() as batch:
-        # Open using codecs for the errors='ignore' flag.
-        batch.put_item(Item={'StopId': 'ModificationDate', 'ModificationDateTime': modification_date})
+        # For the errors='ignore', open using codecs library
+        batch.put_item(Item={'StopId': 'ModificationDate', 'ModificationDateTime': current_date})
         with codecs.open("/tmp/stops_temp_file.csv", 'r', encoding='ascii', errors='ignore') as stops_csv:
             reader = csv.DictReader(stops_csv)
             for idx, row in enumerate(reader):

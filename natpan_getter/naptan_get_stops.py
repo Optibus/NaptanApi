@@ -5,10 +5,10 @@ TABLE_NAME = 'Naptan'
 
 def lambda_handler(event, context):
 
-    # Connect to DynamoDB using boto
+    # Connects to DynamoDB using boto library
     dynamo_db = boto3.resource('dynamodb', region_name=REGION)
 
-    # Connect to the DynamoDB table
+    # Connects to the DynamoDB table
     table = dynamo_db.Table(TABLE_NAME)
 
     stop_id = event["stopid"]

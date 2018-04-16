@@ -10,7 +10,7 @@ class BatchSizeError(Exception):
 
 def lambda_handler(event, context):
 
-    # Connect to DynamoDB using boto
+    # Connects to DynamoDB using boto library
     dynamo_db = boto3.resource('dynamodb', region_name=REGION)
     stop_ids = event["stop_ids"]
     stops_ids_list = stop_ids.split(',')
